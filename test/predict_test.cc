@@ -16,10 +16,8 @@ int main() {
                                            {53,1}, {56,1}, {65,1}, {69,1}, {77,1}, {86,1}, {88,1}, {92,1}, {95,1},
                                            {102,1}, {106,1}, {116,1}, {122,1}};
     unique_ptr<unordered_map<uint64_t, float>> p(new unordered_map<size_t, bst_float>(inst));
-    RegTree::FVec fvec;
-    fvec.Set(std::move(p));
-    float pred_val = pred->Predict(fvec, false, 2);
-    cout << "pred_value : " << pred_val << endl;
+    float pred_val1 = pred->Predict(std::move(p), false, 2);
+    cout << "pred_value : " << pred_val1 << endl;
     delete pred;
 
     return 0;

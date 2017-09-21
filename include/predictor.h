@@ -10,12 +10,14 @@
 #include <dmlc/io.h>
 #include <dmlc/timer.h>
 #include <algorithm>
+#include <memory>
 #include <iomanip>
 #include <limits>
 #include <sstream>
 #include <string>
 #include <utility>
 #include <vector>
+#include <unordered_map>
 #include "io.h"
 #include "gbtree_model.h"
 #include "tree_model.h"
@@ -116,8 +118,15 @@ namespace xgboost {
         inline float Sigmoid(float x) const {
             return 1.0f / (1.0f + std::exp(-x));
         }
+		
+		float Predict(std::unique_ptr<std::unordered_map<uint64_t, bst_float>> feats,
+				bool output_margin, unsigned ntree_limit) const {
+			RegTree::FVec fvec;
+			fvec.Set(std::move(feats));
+			return PredictFVec(fvec, output_margin, ntree_limit);
+		}
 
-        float Predict(RegTree::FVec &feats,
+        inline float PredictFVec(RegTree::FVec &feats,
                       bool output_margin,
                       unsigned ntree_limit) const {
             if (ntree_limit == 0 || ntree_limit > gbm_->trees.size()) {

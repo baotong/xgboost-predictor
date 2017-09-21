@@ -1,0 +1,26 @@
+booster[0]:
+0:[odor=pungent] yes=2,no=1
+	1:[stalk-root=cup] yes=4,no=3
+		3:[stalk-root=missing] yes=8,no=7
+			7:leaf=1.90175
+			8:leaf=-1.95062
+		4:[bruises?=no] yes=10,no=9
+			9:leaf=1.77778
+			10:leaf=-1.98104
+	2:[spore-print-color=orange] yes=6,no=5
+		5:[stalk-surface-below-ring=silky] yes=12,no=11
+			11:leaf=-1.98531
+			12:leaf=0.808511
+		6:leaf=1.85965
+booster[1]:
+0:[odor=pungent] yes=2,no=1
+	1:[bruises?=no] yes=4,no=3
+		3:leaf=1.1457
+		4:[gill-spacing=crowded] yes=8,no=7
+			7:leaf=-6.87558
+			8:leaf=-0.127376
+	2:[spore-print-color=orange] yes=6,no=5
+		5:[gill-size=narrow] yes=10,no=9
+			9:leaf=-0.0386054
+			10:leaf=-1.15275
+		6:leaf=0.994744

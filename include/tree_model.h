@@ -514,14 +514,6 @@ namespace xgboost {
          */
         inline bst_float Predict(const FVec &feat, unsigned root_id = 0) const;
 
-        /*!
-         * \brief calculate the feature contributions for the given root
-         * \param feat dense feature vector, if the feature is missing the field is set to NaN
-         * \param root_id starting root index of the instance
-         * \param out_contribs output vector to hold the contributions
-         */
-        inline void CalculateContributions(const RegTree::FVec &feat, unsigned root_id,
-                                           bst_float *out_contribs) const;
 
         /*!
          * \brief get next position of the tree given current pid
@@ -617,32 +609,6 @@ namespace xgboost {
         return result;
     }
 
-    inline void RegTree::CalculateContributions(const RegTree::FVec &feat, unsigned root_id,
-                                                bst_float *out_contribs) const {
-        CHECK_GT(this->node_mean_values.size(), 0U);
-        // this follows the idea of http://blog.datadive.net/interpreting-random-forests/
-        bst_float node_value;
-        unsigned split_index;
-        int pid = static_cast<int>(root_id);
-        // update bias value
-        node_value = this->node_mean_values[pid];
-        out_contribs[feat.size()] += node_value;
-        if ((*this)[pid].is_leaf()) {
-            // nothing to do anymore
-            return;
-        }
-        while (!(*this)[pid].is_leaf()) {
-            split_index = (*this)[pid].split_index();
-            pid = this->GetNext(pid, feat.fvalue(split_index), feat.is_missing(split_index));
-            bst_float new_value = this->node_mean_values[pid];
-            // update feature weight
-            out_contribs[split_index] += new_value - node_value;
-            node_value = new_value;
-        }
-        bst_float leaf_value = (*this)[pid].leaf_value();
-        // update leaf feature weight
-        out_contribs[split_index] += leaf_value - node_value;
-    }
 
 /*! \brief get next position of the tree given current pid */
     inline int RegTree::GetNext(int pid, bst_float fvalue, bool is_unknown) const {

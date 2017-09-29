@@ -15,7 +15,8 @@
 #include <cstring>
 #include <algorithm>
 #include <unordered_map>
-#include "base.h"
+
+typedef float bst_float;
 
 namespace xgboost {
 

@@ -8,7 +8,6 @@
 #define XGBOOST_PREDICTOR_H
 
 #include <dmlc/io.h>
-#include <dmlc/timer.h>
 #include <algorithm>
 #include <memory>
 #include <iomanip>

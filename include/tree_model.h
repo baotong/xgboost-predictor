@@ -459,7 +459,7 @@ namespace xgboost {
              * \param inst The sparse instance to fill.
              */
             //inline void Fill(const RowBatch::Inst& inst);
-            inline void Set(std::unique_ptr<std::unordered_map<size_t, bst_float>> feature_map);
+            inline void Set(const std::unordered_map<size_t, bst_float>* feature_map);
             /*!
              * \brief drop the trace after fill, must be called after fill.
              * \param inst The sparse instance to drop.
@@ -496,7 +496,7 @@ namespace xgboost {
             };*/
             // std::vector<Entry> data;
             // change inner implementation from vector to unordered map
-            std::unique_ptr<std::unordered_map<size_t, bst_float>> data;
+            const std::unordered_map<size_t, bst_float>* data = nullptr;
         };
 
         /*!
@@ -544,27 +544,27 @@ namespace xgboost {
         // std::fill(data.begin(), data.end(), e);
     }
 
-    inline void RegTree::FVec::Set(std::unique_ptr<std::unordered_map<size_t, bst_float>> feature_map) {
-        data = std::move(feature_map);
+    inline void RegTree::FVec::Set(const std::unordered_map<size_t, bst_float>* feature_map) {
+        data = feature_map;
     }
 
 
     inline size_t RegTree::FVec::size() const {
-        return data.get()->size();
+        return data->size();
     }
 
     inline bst_float RegTree::FVec::fvalue(size_t i) const {
-        const auto& res = data.get()->find(i);
-        if (res != data.get()->end()) {
-            return data.get()->at(i);
+        const auto& res = data->find(i);
+        if (res != data->end()) {
+            return data->at(i);
         } else {
             return 0;
         }
     }
 
     inline bool RegTree::FVec::is_missing(size_t i) const {
-        const auto& res = data.get()->find(i);
-        if (res != data.get()->end()) {
+        const auto& res = data->find(i);
+        if (res != data->end()) {
             return false;
         } else {
             return true;

@@ -7,21 +7,22 @@
 #ifndef XGBOOST_TREE_MODEL_H_
 #define XGBOOST_TREE_MODEL_H_
 
-#include <dmlc/io.h>
-#include <dmlc/parameter.h>
 #include <limits>
 #include <vector>
 #include <string>
 #include <cstring>
 #include <algorithm>
 #include <unordered_map>
+#include <fstream>
+#include "logging.h"
+#include "fvec.h"
 
-typedef float bst_float;
+
 
 namespace xgboost {
 
 /*! \brief meta parameters of the tree */
-    struct TreeParam : public dmlc::Parameter<TreeParam> {
+    struct TreeParam {
         /*! \brief number of start root */
         int num_roots;
         /*! \brief total number of nodes */
@@ -39,7 +40,6 @@ namespace xgboost {
         int size_leaf_vector;
         /*! \brief reserved part, make sure alignment works for 64bit */
         int reserved[31];
-
         /*! \brief constructor */
         TreeParam() {
             // assert compact alignment
@@ -219,7 +219,8 @@ namespace xgboost {
             }
             int nd = param.num_nodes++;
             CHECK_LT(param.num_nodes, std::numeric_limits<int>::max())
-                    << "number of nodes in the tree exceed 2^31";
+                << "number of nodes in the tree exceed 2^31";
+            
             nodes.resize(param.num_nodes);
             stats.resize(param.num_nodes);
             leaf_vector.resize(param.num_nodes * param.size_leaf_vector);
@@ -233,6 +234,7 @@ namespace xgboost {
             nodes[nid].mark_delete();
             ++param.num_deleted;
         }
+
 
     public:
         /*!
@@ -327,17 +329,16 @@ namespace xgboost {
          * \brief load model from stream
          * \param fi input stream
          */
-        inline void Load(dmlc::Stream *fi) {
-            CHECK_EQ(fi->Read(&param, sizeof(TreeParam)), sizeof(TreeParam));
+        inline void Load(std::ifstream& ifile) {
+            ifile.read((char*)&param, sizeof(TreeParam));
             nodes.resize(param.num_nodes);
             stats.resize(param.num_nodes);
-            CHECK_NE(param.num_nodes, 0);
-            CHECK_EQ(fi->Read(dmlc::BeginPtr(nodes), sizeof(Node) * nodes.size()),
-                     sizeof(Node) * nodes.size());
-            CHECK_EQ(fi->Read(dmlc::BeginPtr(stats), sizeof(NodeStat) * stats.size()),
-                     sizeof(NodeStat) * stats.size());
+
+            ifile.read((char*)&nodes[0], sizeof(Node) * nodes.size());
+            ifile.read((char*)&stats[0], sizeof(NodeStat) * stats.size());
+            
             if (param.size_leaf_vector != 0) {
-                CHECK(fi->Read(&leaf_vector));
+                ifile.read((char*)&leaf_vector[0], param.num_nodes * param.size_leaf_vector);
             }
             // chg deleted nodes
             deleted_nodes.resize(0);
@@ -347,19 +348,6 @@ namespace xgboost {
             CHECK_EQ(static_cast<int>(deleted_nodes.size()), param.num_deleted);
         }
 
-        /*!
-         * \brief save model to stream
-         * \param fo output stream
-         */
-        inline void Save(dmlc::Stream *fo) const {
-            CHECK_EQ(param.num_nodes, static_cast<int>(nodes.size()));
-            CHECK_EQ(param.num_nodes, static_cast<int>(stats.size()));
-            fo->Write(&param, sizeof(TreeParam));
-            CHECK_NE(param.num_nodes, 0);
-            fo->Write(dmlc::BeginPtr(nodes), sizeof(Node) * nodes.size());
-            fo->Write(dmlc::BeginPtr(stats), sizeof(NodeStat) * nodes.size());
-            if (param.size_leaf_vector != 0) fo->Write(leaf_vector);
-        }
 
         /*!
          * \brief add child nodes to node
@@ -444,62 +432,6 @@ namespace xgboost {
     class RegTree : public TreeModel<bst_float, RTreeNodeStat> {
     public:
         /*!
-         * \brief dense feature vector that can be taken by RegTree
-         * and can be construct from sparse feature vector.
-         */
-        struct FVec {
-        public:
-            /*!
-             * \brief initialize the vector with size vector
-             * \param size The size of the feature vector.
-             */
-            inline void Init(size_t size);
-            /*!
-             * \brief fill the vector with sparse vector
-             * \param inst The sparse instance to fill.
-             */
-            //inline void Fill(const RowBatch::Inst& inst);
-            inline void Set(const std::unordered_map<size_t, bst_float>* feature_map);
-            /*!
-             * \brief drop the trace after fill, must be called after fill.
-             * \param inst The sparse instance to drop.
-             */
-            //inline void Drop(const RowBatch::Inst& inst);
-            /*!
-             * \brief returns the size of the feature vector
-             * \return the size of the feature vector
-             */
-            inline size_t size() const;
-
-            /*!
-             * \brief get ith value
-             * \param i feature index.
-             * \return the i-th feature value
-             */
-            inline bst_float fvalue(size_t i) const;
-
-            /*!
-             * \brief check whether i-th entry is missing
-             * \param i feature index.
-             * \return whether i-th value is missing.
-             */
-            inline bool is_missing(size_t i) const;
-
-        private:
-            /*!
-             * \brief a union value of value and flag
-             *  when flag == -1, this indicate the value is missing
-             */
-            /*union Entry {
-                bst_float fvalue;
-                int flag;
-            };*/
-            // std::vector<Entry> data;
-            // change inner implementation from vector to unordered map
-            const std::unordered_map<size_t, bst_float>* data = nullptr;
-        };
-
-        /*!
          * \brief get the leaf index
          * \param feat dense feature vector, if the feature is missing the field is set to NaN
          * \param root_id starting root index of the instance
@@ -537,41 +469,8 @@ namespace xgboost {
 
 // implementations of inline functions
 // do not need to read if only use the model
-    inline void RegTree::FVec::Init(size_t size) {
-        //Entry e;
-        //e.flag = -1;
-        // data.resize(size);
-        // std::fill(data.begin(), data.end(), e);
-    }
 
-    inline void RegTree::FVec::Set(const std::unordered_map<size_t, bst_float>* feature_map) {
-        data = feature_map;
-    }
-
-
-    inline size_t RegTree::FVec::size() const {
-        return data->size();
-    }
-
-    inline bst_float RegTree::FVec::fvalue(size_t i) const {
-        const auto& res = data->find(i);
-        if (res != data->end()) {
-            return data->at(i);
-        } else {
-            return 0;
-        }
-    }
-
-    inline bool RegTree::FVec::is_missing(size_t i) const {
-        const auto& res = data->find(i);
-        if (res != data->end()) {
-            return false;
-        } else {
-            return true;
-        }
-    }
-
-    inline int RegTree::GetLeafIndex(const RegTree::FVec &feat, unsigned root_id) const {
+    inline int RegTree::GetLeafIndex(const FVec &feat, unsigned root_id) const {
         int pid = static_cast<int>(root_id);
         while (!(*this)[pid].is_leaf()) {
             unsigned split_index = (*this)[pid].split_index();
@@ -580,7 +479,7 @@ namespace xgboost {
         return pid;
     }
 
-    inline bst_float RegTree::Predict(const RegTree::FVec &feat, unsigned root_id) const {
+    inline bst_float RegTree::Predict(const FVec &feat, unsigned root_id) const {
         int pid = this->GetLeafIndex(feat, root_id);
         return (*this)[pid].leaf_value();
     }

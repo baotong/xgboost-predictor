@@ -1,20 +1,21 @@
 /*!
  * Copyright by Contributors 2017
+ * modified by baotong 2017.10
  */
 #ifndef XGBOOST_GBTREE_MODEL_H
 #define XGBOOST_GBTREE_MODEL_H
 
-#include <dmlc/parameter.h>
-#include <dmlc/io.h>
 #include <utility>
 #include <string>
 #include <vector>
+#include <fstream>
 #include "tree_model.h"
 
 namespace xgboost {
     namespace gbm {
 /*! \brief model parameters */
-        struct GBTreeModelParam : public dmlc::Parameter<GBTreeModelParam> {
+        //struct GBTreeModelParam : public dmlc::Parameter<GBTreeModelParam> {
+        struct GBTreeModelParam {
             /*! \brief number of trees */
             int num_trees;
             /*! \brief number of roots */
@@ -42,26 +43,6 @@ namespace xgboost {
                 static_assert(sizeof(GBTreeModelParam) == (4 + 2 + 2 + 32) * sizeof(int),
                               "64/32 bit compatibility issue");
             }
-
-            // declare parameters, only declare those that need to be set.
-            DMLC_DECLARE_PARAMETER(GBTreeModelParam) {
-                    DMLC_DECLARE_FIELD(num_output_group)
-                            .set_lower_bound(1)
-                            .set_default(1)
-                            .describe(
-                                    "Number of output groups to be predicted,"
-                                            " used for multi-class classification.");
-                    DMLC_DECLARE_FIELD(num_roots).set_lower_bound(1).set_default(1).describe(
-                    "Tree updater sequence.");
-                    DMLC_DECLARE_FIELD(num_feature)
-                    .set_lower_bound(0)
-                    .describe("Number of features used for training and prediction.");
-                    DMLC_DECLARE_FIELD(size_leaf_vector)
-                    .set_lower_bound(0)
-                    .set_default(0)
-                    .describe("Reserved option for vector tree.");
-            }
-
         };
 
         class GBTreeModel {
@@ -71,40 +52,40 @@ namespace xgboost {
             void Configure(const std::vector <std::pair<std::string, std::string>> &cfg) {
                 // initialize model parameters if not yet been initialized.
                 if (trees.size() == 0) {
-                    param.InitAllowUnknown(cfg);
+					// TODO: init
+                    //param.InitAllowUnknown(cfg);
                 }
             }
 
             void InitTreesToUpdate() {
-                /*if (trees_to_update.size() == 0u) {
-                  for (size_t i = 0; i < trees.size(); ++i) {
-                    trees_to_update.push_back(std::move(trees[i]));
-                  } */
                 trees.clear();
                 param.num_trees = 0;
                 tree_info.clear();
             }
 
-            void Load(dmlc::Stream *fi) {
-                CHECK_EQ(fi->Read(&param, sizeof(param)), sizeof(param))
-                        << "GBTree: invalid model file";
+            void Load(std::ifstream& ifile) {
+                if (!ifile.read((char*)&param, sizeof(param))) {
+                    std::cerr << "GBTree:: invalid model file" << std::endl;
+                }
+
                 trees.clear();
 
                 for (int i = 0; i < param.num_trees; ++i) {
-                    std::unique_ptr <RegTree> ptr(new RegTree());
-                    ptr->Load(fi);
+                    std::unique_ptr<RegTree> ptr(new RegTree());
+                    ptr->Load(ifile);
                     trees.push_back(std::move(ptr));
                 }
+                
                 tree_info.resize(param.num_trees);
                 if (param.num_trees != 0) {
-                    CHECK_EQ(
-                            fi->Read(dmlc::BeginPtr(tree_info), sizeof(int) * param.num_trees),
-                            sizeof(int) * param.num_trees);
+                    ifile.read((char*)&tree_info, sizeof(int) * param.num_trees);
                 }
+                
             }
+            
 
-            float PredictInstanceRaw(RegTree::FVec &feats, unsigned tree_begin, unsigned tree_end) {
-                bst_float psum = base_margin;
+            inline float PredictInstanceRaw(FVec &feats, unsigned tree_begin, unsigned tree_end) {
+                bst_float psum = this->base_margin;
 
                 for (size_t i = tree_begin; i < tree_end; ++i) {
                     // bst_group = 1, for binary classification

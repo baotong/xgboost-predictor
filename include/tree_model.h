@@ -170,6 +170,14 @@ namespace xgboost {
                 this->sindex_ = std::numeric_limits<unsigned>::max();
             }
 
+
+            inline void dump_node() {
+                std::cout << "parent: " << parent()
+                          << "\ncleft: " << cleft_
+                          << "\ncright: " << cright_
+                          << "\nsindex: " << split_index() << std::endl;
+            }
+
         private:
             friend class TreeModel<TSplitCond, TNodeStat>;
 
@@ -340,6 +348,7 @@ namespace xgboost {
             if (param.size_leaf_vector != 0) {
                 ifile.read((char*)&leaf_vector[0], param.num_nodes * param.size_leaf_vector);
             }
+
             // chg deleted nodes
             deleted_nodes.resize(0);
             for (int i = param.num_roots; i < param.num_nodes; ++i) {

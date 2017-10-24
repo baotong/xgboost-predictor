@@ -78,7 +78,7 @@ namespace xgboost {
                 
                 tree_info.resize(param.num_trees);
                 if (param.num_trees != 0) {
-                    ifile.read((char*)&tree_info, sizeof(int) * param.num_trees);
+                    ifile.read((char*)&tree_info[0], sizeof(int) * param.num_trees);
                 }
                 
             }
